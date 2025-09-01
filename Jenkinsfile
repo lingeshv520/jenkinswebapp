@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKERHUB_CREDENTIALS = 'dockerhub'   // Jenkins credential ID
-        DOCKERHUB_REPO = 'your-dockerhub-username/simple-webapp'
+        DOCKERHUB_REPO = 'lingeshv09092005/simple-webapp'
         IMAGE_NAME = "simple-webapp"
         CONTAINER_NAME = "webapp-container"
     }
@@ -11,7 +11,7 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/pradeeprpin/jenkinswebapp.git'
+                git branch: 'main', url: 'https://github.com/lingeshv520/jenkinswebapp.git'
             }
         }
 
