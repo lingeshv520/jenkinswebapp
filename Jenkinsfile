@@ -2,10 +2,8 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDENTIALS = 'dockerhub'   // Jenkins credential ID
-        DOCKERHUB_REPO = 'lingeshv09092005/simple-webapp'
-        IMAGE_NAME = "simple-webapp"
-        CONTAINER_NAME = "webapp-container"
+        DOCKER_IMAGE = "lingeshv09092005/jenkinswebapp"   // Your Docker Hub repo
+        CONTAINER_NAME = "jenkinswebapp-container"
     }
 
     stages {
@@ -18,23 +16,24 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh "docker build -t ${DOCKERHUB_REPO}:latest ."
+                    // Force fresh build with no cache
+                    sh "docker build --no-cache -t ${DOCKER_IMAGE}:latest ."
                 }
             }
         }
 
-        stage('Push to Docker Hub') {
+        stage('Login to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
             steps {
                 script {
-                    withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS}", 
-                                                     usernameVariable: 'DOCKER_USER', 
-                                                     passwordVariable: 'DOCKER_PASS')]) {
-                        sh """
-                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                        docker push ${DOCKERHUB_REPO}:latest
-                        docker logout
-                        """
-                    }
+                    sh "docker push ${DOCKER_IMAGE}:latest"
                 }
             }
         }
@@ -42,12 +41,18 @@ pipeline {
         stage('Deploy Container') {
             steps {
                 script {
+                    // Remove old container, pull latest image, and redeploy
                     sh """
                     docker rm -f ${CONTAINER_NAME} || true
-                    docker run -d --name ${CONTAINER_NAME} -p 80:80 ${DOCKERHUB_REPO}:latest
+                    docker pull ${DOCKER_IMAGE}:latest
+                    docker run -d --name ${CONTAINER_NAME} -p 80:80 ${DOCKER_IMAGE}:latest
                     """
                 }
             }
         }
+    }
+
+    triggers {
+        pollSCM('* * * * *')   // Check every 1 minute for changes
     }
 }
