@@ -2,6 +2,8 @@ pipeline {
     agent any
 
     environment {
+        DOCKERHUB_CREDENTIALS = 'dockerhub'   // Jenkins credential ID
+        DOCKERHUB_REPO = 'your-dockerhub-username/simple-webapp'
         IMAGE_NAME = "simple-webapp"
         CONTAINER_NAME = "webapp-container"
     }
@@ -16,7 +18,23 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh "docker build -t ${IMAGE_NAME}:latest ."
+                    sh "docker build -t ${DOCKERHUB_REPO}:latest ."
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS}", 
+                                                     usernameVariable: 'DOCKER_USER', 
+                                                     passwordVariable: 'DOCKER_PASS')]) {
+                        sh """
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker push ${DOCKERHUB_REPO}:latest
+                        docker logout
+                        """
+                    }
                 }
             }
         }
@@ -24,10 +42,9 @@ pipeline {
         stage('Deploy Container') {
             steps {
                 script {
-                    // Stop and remove old container if running
                     sh """
                     docker rm -f ${CONTAINER_NAME} || true
-                    docker run -d --name ${CONTAINER_NAME} -p 80:80 ${IMAGE_NAME}:latest
+                    docker run -d --name ${CONTAINER_NAME} -p 80:80 ${DOCKERHUB_REPO}:latest
                     """
                 }
             }
